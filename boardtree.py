@@ -1,5 +1,5 @@
 class BoardNode:
-    def __init__(self, history, board, player_to_move, moves_since_last_capture = 0, castle_white=(True, True), castle_black=(True, True), move_number = 1):
+    def __init__(self, history, board, player_to_move, move_number = 1):
         self.board = board
         self.history = history
         self.player_to_move = player_to_move
@@ -7,11 +7,87 @@ class BoardNode:
         self.check = False
         self.terminal = False
         self.moves = None
-        self.moves_since_last_capture = moves_since_last_capture
+        self.board_score = self.get_board_score(self.board)
         # (queen side castle, king side castle)
-        self.castle_white = castle_white
-        self.castle_black = castle_black
+        self.castle = (True, True)
         self.move_number = move_number
+        self.check_for_draw_and_castle()
+        self.find_board_moves()
+        if len(self.moves) == 0:
+            if self.is_in_check(self.board, self.player_to_move):
+                if player_to_move == 'w':
+                    self.terminal = 'black'
+                    self.game_state = 'checkmate, black wins'
+                    self.board_score = -1000
+                else:
+                    self.terminal = 'white'
+                    self.game_state = 'checkmate, white wins'
+                    self.board_score = 1000
+            else:
+                self.terminal = 'draw'
+
+    def check_for_draw_and_castle(self):
+
+        recent_capture = False
+        repetition_count = 1
+
+        # Iterate through history to check draw conditions and update castling rights
+        for i in range(len(self.history)):
+            index = len(self.history)-i-1
+            # Update move count since last capture if not yet found
+            if not recent_capture:
+                historic_score = self.get_board_score(self.history[index])
+                if historic_score != self.board_score:
+                    recent_capture = True
+            if i >= 99 and not recent_capture:
+                self.terminal = 'Draw'
+                self.game_state = "Draw by 50 move rule"
+
+            # Check if pawns have moved (i.e., if their positions differ)
+            current_pawn_positions = [(r, c) for r in range(8) for c in range(8)
+                                      if self.board[r][c] and self.board[r][c][1] == 'P']
+            previous_pawn_positions = [(r, c) for r in range(8) for c in range(8)
+                                       if self.history[index][r][c] and self.history[index][r][c][1] == 'P']
+            if current_pawn_positions != previous_pawn_positions:
+                break
+
+            # Check for threefold repetition
+            if self.board == self.history[index]:
+                repetition_count += 1
+                if repetition_count == 3:
+                    self.terminal = 'Draw'
+                    self.game_state = 'Draw by repetition'
+                    break
+
+        # Update castling rights based on the current and previous board states
+
+
+        # White king and rooks
+        for i in range(len(self.history)):
+            index = len(self.history)-i-1
+            current_board = self.history[index]
+            if self.player_to_move == 'w':
+                if current_board[7][4] != 'wK':  # White king moved
+                    self.castle = (False, False)
+                if current_board[7][0] != 'wR':  # White queen-side rook moved
+                    self.castle = (False, self.castle[1])
+                if current_board[7][7] != 'wR':  # White king-side rook moved
+                    self.castle = (self.castle[0], False)
+
+            # Black king and rooks
+            else:
+                if current_board[0][4] != 'bK':  # Black king moved
+                    self.castle = (False, False)
+                if current_board[0][0] != 'bR':  # Black queen-side rook moved
+                    self.castle = (False, self.castle[1])
+                if current_board[0][7] != 'bR':  # Black king-side rook moved
+                    self.castle = (self.castle[0], False)
+
+            # If castling rights are revoked, stop further checks
+            if self.castle == (False, False):
+                return
+
+
 
     def get_king_position(self, player, board):
         for row in range(8):
@@ -66,6 +142,29 @@ class BoardNode:
                     return True
 
         return False
+
+    def get_board_score(self, board):
+        # Define the piece values
+        piece_values = {
+            'K': 0, 'Q': 9, 'R': 5, 'B': 3, 'N': 3, 'P': 1,
+        }
+
+        score = 0
+
+        # Iterate through the board
+        for row in board:
+            for piece in row:
+                if piece != '':
+                    color = piece[0]  # 'w' or 'b'
+                    piece_type = piece[1]  # 'K', 'Q', 'R', etc.
+                    value = piece_values[piece_type]
+
+                    if color == 'w':
+                        score += value  # Add value for white pieces
+                    elif color == 'b':
+                        score -= value  # Subtract value for black pieces
+
+        return score
 
     def get_knight_moves(self, pos, piece):
         row, col = pos
@@ -138,8 +237,78 @@ class BoardNode:
 
         return moves
 
+    def enpassant_and_promotion(self):
+        # Get the previous board state from history
+        prev_board = self.history[-1] if len(self.history) > 0 else None
+
+        # Initialize a list to hold potential board states after en passant or promotion
+        weird_moves = []
+
+        if self.player_to_move == 'w':
+            for col in range(8):
+                # Check for white pawn on 5th rank (row 3)
+                if self.board[3][col] == 'wP':
+                    # Check left and right for en passant
+                    if col > 0 and self.board[2][col - 1] == '' and self.board[3][col - 1] == 'bP':
+                        # Check if the black pawn was in its starting position in the previous board state
+                        if prev_board and prev_board[1][col - 1] == 'bP' and self.board[4][col - 1] == '':
+                            new_board = [r[:] for r in self.board]  # Deep copy of the board
+                            new_board[3][col] = ''
+                            new_board[3][col - 1] = ''
+                            new_board[2][col - 1] = 'wP'
+                            weird_moves.append(new_board)
+
+                    if col < 7 and self.board[2][col + 1] == '' and self.board[3][col + 1] == 'bP':
+                        if prev_board and prev_board[1][col + 1] == 'bP' and self.board[4][col + 1] == '':
+                            new_board = [r[:] for r in self.board]
+                            new_board[3][col] = ''
+                            new_board[3][col + 1] = ''
+                            new_board[2][col + 1] = 'wP'
+                            weird_moves.append(new_board)
+
+                # Check for promotion (white pawn on 1st rank)
+                if self.board[1][col] == 'wP':
+                    for promotion_piece in ['wQ', 'wR', 'wB', 'wN']:
+                        new_board = [r[:] for r in self.board]
+                        new_board[1][col] = promotion_piece
+                        weird_moves.append(new_board)
+
+        elif self.player_to_move == 'b':
+            for col in range(8):
+                # Check for black pawn on 4th rank (row 4)
+                if self.board[4][col] == 'bP':
+                    # Check left and right for en passant
+                    if col > 0 and self.board[5][col - 1] == '' and self.board[4][col - 1] == 'wP':
+                        if prev_board and prev_board[6][col - 1] == 'wP' and self.board[3][col - 1] == '':
+                            new_board = [r[:] for r in self.board]
+                            new_board[4][col] = ''
+                            new_board[4][col - 1] = ''
+                            new_board[5][col - 1] = 'bP'
+                            weird_moves.append(new_board)
+
+                    if col < 7 and self.board[5][col + 1] == '' and self.board[4][col + 1] == 'wP':
+                        if prev_board and prev_board[6][col + 1] == 'wP' and self.board[3][col + 1] == '':
+                            new_board = [r[:] for r in self.board]
+                            new_board[4][col] = ''
+                            new_board[4][col + 1] = ''
+                            new_board[5][col + 1] = 'bP'
+                            weird_moves.append(new_board)
+
+                # Check for promotion (black pawn on 8th rank)
+                if self.board[6][col] == 'bP':
+                    for promotion_piece in ['bQ', 'bR', 'bB', 'bN']:
+                        new_board = [r[:] for r in self.board]
+                        new_board[6][col] = promotion_piece
+                        weird_moves.append(new_board)
+
+        return weird_moves
+
     def find_board_moves(self):
         board_list = []
+        weird_moves = self.enpassant_and_promotion()
+        for board in weird_moves:
+            if not self.is_in_check(board, self.player_to_move):
+                board_list.append(board)
         for row_idx, row in enumerate(self.board):
             for col_idx, piece in enumerate(row):
                 if piece and piece[0] == self.player_to_move:
@@ -154,7 +323,7 @@ class BoardNode:
         # Add castling moves for white
 
         if self.player_to_move == 'w' and not self.is_in_check(self.board, 'w'):
-            if self.castle_white[0]:  # Queen side castle
+            if self.castle[0]:  # Queen side castle
                 if self.board[7][1] == self.board[7][2] == self.board[7][3] == '' and \
                         not self.is_under_attack(self.board, 'w', (7, 2)) and \
                         not self.is_under_attack(self.board, 'w', (7, 3)):
@@ -165,7 +334,7 @@ class BoardNode:
                         new_board[7][4] = ''
                         new_board[7][0] = ''
                         board_list.append(new_board)
-            if self.castle_white[1]:  # King side castle
+            if self.castle[1]:  # King side castle
                 if self.board[7][5] == self.board[7][6] == '' and \
                         not self.is_under_attack(self.board, 'w', (7, 5)) and \
                         not self.is_under_attack(self.board, 'w', (7, 6)):
@@ -179,7 +348,7 @@ class BoardNode:
 
         # Add castling moves for black
         if self.player_to_move == 'b' and not self.is_in_check(self.board, 'b'):
-            if self.castle_black[0]:  # Queen side castle
+            if self.castle[0]:  # Queen side castle
                 if self.board[0][1] == self.board[0][2] == self.board[0][3] == '' and \
                         not self.is_under_attack(self.board, 'b', (0, 2)) and \
                         not self.is_under_attack(self.board, 'b', (0, 3)):
@@ -190,7 +359,7 @@ class BoardNode:
                     new_board[0][4] = ''
                     new_board[0][0] = ''
                     board_list.append(new_board)
-            if self.castle_black[1]:  # King side castle
+            if self.castle[1]:  # King side castle
                 if self.board[0][5] == self.board[0][6] == '' and \
                         not self.is_under_attack(self.board, 'b', (0, 5)) and \
                         not self.is_under_attack(self.board, 'b', (0, 6)):

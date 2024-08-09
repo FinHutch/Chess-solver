@@ -19,6 +19,36 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
 
+def display_terminal_message(win, message):
+    # Define the dimensions for the modal dialog
+    width, height = win.get_size()
+    dialog_width, dialog_height = width // 2, height // 2
+    dialog_x, dialog_y = (width - dialog_width) // 2, (height - dialog_height) // 2
+
+    # Draw the dialog background
+    pygame.draw.rect(win, (200, 200, 200), (dialog_x, dialog_y, dialog_width, dialog_height))
+    pygame.draw.rect(win, BLACK, (dialog_x, dialog_y, dialog_width, dialog_height), 2)
+
+    # Render the message text
+    font = pygame.font.Font(None, 36)
+    text_surface = font.render(message, True, BLACK)
+    text_rect = text_surface.get_rect(center=(dialog_x + dialog_width // 2, dialog_y + dialog_height // 3))
+    win.blit(text_surface, text_rect)
+
+    # Draw the restart button
+    button_width, button_height = dialog_width // 3, dialog_height // 6
+    button_x, button_y = (width - button_width) // 2, dialog_y + dialog_height // 2
+    pygame.draw.rect(win, (100, 100, 100), (button_x, button_y, button_width, button_height))
+    pygame.draw.rect(win, BLACK, (button_x, button_y, button_width, button_height), 2)
+
+    # Render the button text
+    button_text = font.render("Restart", True, WHITE)
+    button_text_rect = button_text.get_rect(center=(button_x + button_width // 2, button_y + button_height // 2))
+    win.blit(button_text, button_text_rect)
+
+    pygame.display.update()
+
+    return (button_x, button_y, button_width, button_height)  # Return the button's rect for event handling
 # Load and scale piece images
 def load_and_scale_image(file_name, square_size):
     image = pygame.image.load(os.path.join('assets', file_name))
@@ -96,48 +126,60 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
 
+            if boardNode.terminal:
+                message = boardNode.game_state  # Assuming this stores the game state like "Checkmate" or "Draw"
+                button_rect = display_terminal_message(WIN, message)
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = event.pos
+                    if (button_rect[0] <= mouse_pos[0] <= button_rect[0] + button_rect[2] and
+                        button_rect[1] <= mouse_pos[1] <= button_rect[1] + button_rect[3]):
+                        # Restart the game
+                        boardNode = BoardNode([], startBoard, 'w')
+                        selected_piece = None
+                        start_pos = None
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                x, y = event.pos
-                col, row = x // square_size, y // square_size
-                if boardNode.board[row][col] != '':
-                    selected_piece = boardNode.board[row][col]
-                    start_pos = (row, col)
+                if not boardNode.terminal:
+                    x, y = event.pos
+                    col, row = x // square_size, y // square_size
+                    if boardNode.board[row][col] != '':
+                        selected_piece = boardNode.board[row][col]
+                        start_pos = (row, col)
 
             elif event.type == pygame.MOUSEBUTTONUP:
-                x, y = event.pos
-                col, row = x // square_size, y // square_size
-                if start_pos is not None:
-                    # Create a hypothetical board state by copying the current board
-                    if start_pos != (row, col):
-                        new_board = [row.copy() for row in boardNode.board]
+                if not boardNode.terminal:
+                    x, y = event.pos
+                    col, row = x // square_size, y // square_size
 
-                        # Make the move on the hypothetical board
-                        new_board[row][col] = selected_piece
-                        new_board[start_pos[0]][start_pos[1]] = ''
-                        boardNode.find_board_moves()
-                        # Check if the hypothetical board is in the list of allowed future boards
-                        if new_board in boardNode.moves:
-                            boardNode.history.append(copy.deepcopy(boardNode.board))
-                            boardNode.board[row][col] = selected_piece
-                            boardNode.board[start_pos[0]][start_pos[1]] = ''
-                            if boardNode.player_to_move == 'w':
-                                boardNode.player_to_move = 'b'
-                            else:
-                                boardNode.player_to_move = 'w'
-                        elif selected_piece == 'wK' or selected_piece == 'bK':
-                            if start_pos == (7, 4) or (row, col) == (0, 4):
-                                for castle_check in boardNode.moves:
-                                    if castle_check[row][col] == selected_piece:
-                                        boardNode.board = copy.deepcopy(castle_check)
-                                        if boardNode.player_to_move == 'w':
-                                            boardNode.player_to_move = 'b'
-                                        else:
-                                            boardNode.player_to_move = 'w'
+                    if start_pos is not None:
+                        if start_pos != (row, col):
+                            new_board = [row.copy() for row in boardNode.board]
+                            new_board[row][col] = selected_piece
+                            new_board[start_pos[0]][start_pos[1]] = ''
+
+                            valid_move_found = False
+
+                            for future_board in boardNode.moves:
+                                if selected_piece in ['wR', 'bR']:
+                                    if new_board == future_board:
+                                        valid_move_found = True
                                         break
+                                elif (future_board[row][col] == selected_piece and
+                                      future_board[start_pos[0]][start_pos[1]] == '' and
+                                      future_board[row][col] == new_board[row][col] and
+                                      future_board[start_pos[0]][start_pos[1]] == new_board[start_pos[0]][start_pos[1]]):
+                                    valid_move_found = True
+                                    break
 
-                    # Reset the selected piece and start position
-                    selected_piece = None
-                    start_pos = None
+                            if valid_move_found:
+                                boardNode.player_to_move = 'b' if boardNode.player_to_move == 'w' else 'w'
+                                boardNode.history.append(boardNode.board)
+                                boardNode = BoardNode(boardNode.history, copy.deepcopy(future_board), boardNode.player_to_move, boardNode.move_number + 0.5)
+
+
+                        selected_piece = None
+                        start_pos = None
 
             elif event.type == pygame.MOUSEMOTION:
                 if selected_piece:
@@ -152,7 +194,6 @@ def main():
         pygame.display.update()
 
     pygame.quit()
-
 
 if __name__ == '__main__':
     main()
