@@ -14,6 +14,6 @@ While the current implementation is functional and can defeat a 1200-rated playe
 
 - **Optimization:** Not optimised at all, everything is recalculated for each board node, indluding looking back through the history to look for the 50 move rule
 - **Advanced Heuristics:** the position values are arbritrary and were not thoroughly thought through
-- **User Interface:** The interface is WACK (short project)
+- **User Interface:** The interface is WACK it uses pygame and is not smooth to use at all.
 - **Support for Different Difficulty Levels:** this would be super easy to implement
 
