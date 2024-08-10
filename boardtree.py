@@ -1,3 +1,77 @@
+queen_scores = [
+    [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000],
+    [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000],
+    [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000],
+    [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000],
+    [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000],
+    [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000],
+    [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000],
+    [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]
+]
+king_scores = [
+    [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
+    [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
+    [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
+    [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
+    [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
+    [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
+    [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
+    [1500, 1400, 1300, 1000, 1000, 1000, 1500, 1510]
+]
+
+rook_scores = [
+    [5500, 5500, 5500, 5500, 5500, 5500, 5500, 5500],
+    [5300, 5300, 5300, 5300, 5300, 5300, 5300, 5300],
+    [5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000],
+    [5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000],
+    [5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000],
+    [5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000],
+    [5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000],
+    [5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000]
+]
+
+bishop_scores = [
+    [3300, 3000, 3200, 3000, 3000, 3200, 3000, 3300],
+    [3000, 3300, 3000, 3200, 3200, 3000, 3300, 3000],
+    [3000, 3000, 3300, 3200, 3200, 3300, 3000, 3000],
+    [3000, 3200, 3200, 3300, 3300, 3200, 3200, 3000],
+    [3000, 3200, 3200, 3300, 3300, 3200, 3200, 3000],
+    [3200, 3200, 3300, 3000, 3100, 3300, 3200, 3200],
+    [3200, 3300, 3100, 3100, 3100, 3100, 3300, 3200],
+    [3300, 3000, 3000, 3000, 3000, 3000, 3000, 3300]
+]
+
+knight_scores = [
+    [3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000],
+    [3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000],
+    [3000, 3000, 3200, 3200, 3200, 3200, 3000, 3000],
+    [3000, 3000, 3200, 3200, 3200, 3200, 3000, 3000],
+    [3000, 3000, 3200, 3200, 3200, 3200, 3000, 3000],
+    [3000, 3000, 3200, 3200, 3200, 3200, 3000, 3000],
+    [3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000],
+    [3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000]
+]
+
+pawn_scores = [
+    [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
+    [3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000],
+    [1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500],
+    [1150, 1150, 1200, 1350, 1350, 1200, 1150, 1150],
+    [1100, 1100, 1100, 1300, 1300, 1100, 1100, 1100],
+    [1050, 1050, 1050, 1200, 1200, 800, 1050, 1050],
+    [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
+    [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]
+]
+# Dictionary mapping piece types to their corresponding multipliers
+piece_scores = {
+    'K': king_scores,
+    'Q': queen_scores,
+    'R': rook_scores,
+    'B': bishop_scores,
+    'N': knight_scores,
+    'P': pawn_scores,
+}
+
 class BoardNode:
     def __init__(self, history, board, player_to_move, move_number = 1):
         self.board = board
@@ -11,12 +85,14 @@ class BoardNode:
         # (queen side castle, king side castle)
         self.castle = (True, True)
         self.move_number = move_number
-        self.check_for_draw_and_castle()
-        self.find_board_moves()
+
+
         self.get_board_score(self.board)
+
+    def get_game_state(self):
         if len(self.moves) == 0:
             if self.is_in_check(self.board, self.player_to_move):
-                if player_to_move == 'w':
+                if self.player_to_move == 'w':
                     self.terminal = 'black'
                     self.game_state = 'checkmate, black wins'
                     self.board_score = -1000
@@ -26,6 +102,17 @@ class BoardNode:
                     self.board_score = 1000
             else:
                 self.terminal = 'draw'
+
+    def piece_count(self, board):
+        count = 0
+
+        # Iterate through the board
+        for row in board:
+            for piece in row:
+                if piece != '':  # If the square is not empty
+                    count += 1
+
+        return count
 
     def check_for_draw_and_castle(self):
 
@@ -37,8 +124,8 @@ class BoardNode:
             index = len(self.history)-i-1
             # Update move count since last capture if not yet found
             if not recent_capture:
-                historic_score = self.get_board_score(self.history[index])
-                if historic_score != self.board_score:
+                historic_score = self.piece_count(self.history[index])
+                if historic_score != self.piece_count(self.board):
                     recent_capture = True
             if i >= 99 and not recent_capture:
                 self.terminal = 'draw'
@@ -50,7 +137,7 @@ class BoardNode:
             previous_pawn_positions = [(r, c) for r in range(8) for c in range(8)
                                        if self.history[index][r][c] and self.history[index][r][c][1] == 'P']
             if current_pawn_positions != previous_pawn_positions:
-                break
+                recent_capture = True
 
             # Check for threefold repetition
             if self.board == self.history[index]:
@@ -144,28 +231,42 @@ class BoardNode:
 
         return False
 
-    def get_board_score(self, board):
-        # Define the piece values
-        piece_values = {
-            'K': 0, 'Q': 9, 'R': 5, 'B': 3, 'N': 3, 'P': 1,
+    def get_board_score(self, board, use_positional_scores=True):
+        scorew = 0
+        scoreb = 0
+        # Define regular piece scores
+        regular_piece_values = {
+            'K': 0,  # King is not typically assigned a fixed value in board evaluation
+            'Q': 9,
+            'R': 5,
+            'B': 3,
+            'N': 3,
+            'P': 1,
         }
 
-        score = 0
-
         # Iterate through the board
-        for row in board:
-            for piece in row:
+        for i, row in enumerate(board):
+            for j, piece in enumerate(row):
                 if piece != '':
                     color = piece[0]  # 'w' or 'b'
-                    piece_type = piece[1]  # 'K', 'Q', 'R', etc.
-                    value = piece_values[piece_type]
+                    piece_type = piece[1]  # 'K', 'Q', 'R', etc.'
 
-                    if color == 'w':
-                        score += value  # Add value for white pieces
-                    elif color == 'b':
-                        score -= value  # Subtract value for black pieces
+                    if use_positional_scores:
+                        # Get the appropriate positional score matrix for the piece type
+                        scores = piece_scores[piece_type]
+                        if color == 'w':
+                            scorew += scores[i][j]  # Add value for white pieces
+                        elif color == 'b':
+                            scoreb += scores[7 - i][j]  # Subtract value for black pieces, flip the board
+                    else:
+                        # Use regular piece values
+                        value = regular_piece_values.get(piece_type, 0)
+                        if color == 'w':
+                            scorew += value  # Add value for white pieces
+                        elif color == 'b':
+                            scoreb += value  # Subtract value for black pieces
 
-        return score
+        return scorew/scoreb #division so pieces are traded when winning
 
     def get_knight_moves(self, pos, piece):
         row, col = pos
@@ -227,6 +328,7 @@ class BoardNode:
             new_row, new_col = row + dr, col + dc
             while 0 <= new_row < 8 and 0 <= new_col < 8:
                 if self.board[new_row][new_col] == '':
+                    moves.append((new_row, new_col))
                     moves.append((new_row, new_col))
                 elif self.board[new_row][new_col][0] != piece[0]:
                     moves.append((new_row, new_col))
@@ -342,6 +444,7 @@ class BoardNode:
         return weird_moves
 
     def find_board_moves(self):
+        self.check_for_draw_and_castle()
         board_list = []
         weird_moves = self.enpassant_and_promotion()
         for board in weird_moves:
@@ -409,5 +512,8 @@ class BoardNode:
                     new_board[0][7] = ''
                     board_list.append(new_board)
 
+
         self.moves = board_list
+
+        self.get_game_state()
         return

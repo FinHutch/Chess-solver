@@ -1,7 +1,9 @@
 import pygame
 import os
 import copy
+import math
 from boardtree import BoardNode
+from minimax import minimax, recursion_count
 pygame.init()
 
 # Define constants
@@ -16,49 +18,39 @@ pygame.display.set_caption("Chess")
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
-
 def display_terminal_message(win, message):
-    # Define the dimensions for the modal dialog
     width, height = win.get_size()
     dialog_width, dialog_height = width // 2, height // 2
     dialog_x, dialog_y = (width - dialog_width) // 2, (height - dialog_height) // 2
 
-    # Draw the dialog background
     pygame.draw.rect(win, (200, 200, 200), (dialog_x, dialog_y, dialog_width, dialog_height))
     pygame.draw.rect(win, BLACK, (dialog_x, dialog_y, dialog_width, dialog_height), 2)
 
-    # Render the message text
     font = pygame.font.Font(None, 36)
     text_surface = font.render(message, True, BLACK)
     text_rect = text_surface.get_rect(center=(dialog_x + dialog_width // 2, dialog_y + dialog_height // 3))
     win.blit(text_surface, text_rect)
 
-    # Draw the restart button
     button_width, button_height = dialog_width // 3, dialog_height // 6
     button_x, button_y = (width - button_width) // 2, dialog_y + dialog_height // 2
     pygame.draw.rect(win, (100, 100, 100), (button_x, button_y, button_width, button_height))
     pygame.draw.rect(win, BLACK, (button_x, button_y, button_width, button_height), 2)
 
-    # Render the button text
     button_text = font.render("Restart", True, WHITE)
     button_text_rect = button_text.get_rect(center=(button_x + button_width // 2, button_y + button_height // 2))
     win.blit(button_text, button_text_rect)
 
     pygame.display.update()
-
     return (button_x, button_y, button_width, button_height)  # Return the button's rect for event handling
 
 def display_promotion_options(win):
-    # Define the dimensions for the promotion dialog
     width, height = win.get_size()
     dialog_width, dialog_height = width // 3, height // 4
     dialog_x, dialog_y = (width - dialog_width) // 2, (height - dialog_height) // 2
 
-    # Draw the dialog background
     pygame.draw.rect(win, (200, 200, 200), (dialog_x, dialog_y, dialog_width, dialog_height))
     pygame.draw.rect(win, BLACK, (dialog_x, dialog_y, dialog_width, dialog_height), 2)
 
-    # Define promotion pieces
     font = pygame.font.Font(None, 36)
     options = ['Queen', 'Rook', 'Bishop', 'Knight']
     button_width = dialog_width // 2
@@ -71,7 +63,6 @@ def display_promotion_options(win):
         pygame.draw.rect(win, (100, 100, 100), (button_x, button_y, button_width, button_height))
         pygame.draw.rect(win, BLACK, (button_x, button_y, button_width, button_height), 2)
 
-        # Render the option text
         button_text = font.render(option, True, WHITE)
         button_text_rect = button_text.get_rect(center=(button_x + button_width // 2, button_y + button_height // 2))
         win.blit(button_text, button_text_rect)
@@ -92,7 +83,6 @@ def load_and_scale_image(file_name, square_size):
         new_width = int((square_size / orig_height) * orig_width)
     return pygame.transform.scale(image, (new_width, new_height))
 
-
 def load_pieces(square_size):
     return {
         'wP': load_and_scale_image('whitepawn.png', square_size),
@@ -109,17 +99,55 @@ def load_pieces(square_size):
         'bK': load_and_scale_image('blackking.png', square_size)
     }
 
-
 # Initialize piece positions
 startBoard = [['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
-         ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
-         ['', '', '', '', '', '', '', ''],
-         ['', '', '', '', '', '', '', ''],
-         ['', '', '', '', '', '', '', ''],
-         ['', '', '', '', '', '', '', ''],
-         ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
-         ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR']]
+              ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
+              ['', '', '', '', '', '', '', ''],
+              ['', '', '', '', '', '', '', ''],
+              ['', '', '', '', '', '', '', ''],
+              ['', '', '', '', '', '', '', ''],
+              ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
+              ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR']]
 
+def display_team_selection(win):
+    width, height = win.get_size()
+    dialog_width, dialog_height = width // 2, height // 3
+    dialog_x, dialog_y = (width - dialog_width) // 2, (height - dialog_height) // 2
+
+    # Draw the dialog box
+    pygame.draw.rect(win, (200, 200, 200), (dialog_x, dialog_y, dialog_width, dialog_height))
+    pygame.draw.rect(win, BLACK, (dialog_x, dialog_y, dialog_width, dialog_height), 2)
+
+    font = pygame.font.Font(None, 36)
+    text_surface = font.render("Choose your team:", True, BLACK)
+    text_rect = text_surface.get_rect(center=(dialog_x + dialog_width // 2, dialog_y + dialog_height // 4))
+    win.blit(text_surface, text_rect)
+
+    # Define button sizes and positions
+    button_width, button_height = dialog_width // 2, dialog_height // 4
+    button_y = dialog_y + dialog_height // 2
+    buttons = []
+
+    # White Team Button
+    white_button_x = dialog_x
+    pygame.draw.rect(win, (100, 100, 100), (white_button_x, button_y, button_width, button_height))
+    pygame.draw.rect(win, BLACK, (white_button_x, button_y, button_width, button_height), 2)
+    white_text = font.render("White", True, WHITE)
+    white_text_rect = white_text.get_rect(center=(white_button_x + button_width // 2, button_y + button_height // 2))
+    win.blit(white_text, white_text_rect)
+    buttons.append((white_button_x, button_y, button_width, button_height, 'White'))
+
+    # Black Team Button
+    black_button_x = dialog_x + button_width
+    pygame.draw.rect(win, (100, 100, 100), (black_button_x, button_y, button_width, button_height))
+    pygame.draw.rect(win, BLACK, (black_button_x, button_y, button_width, button_height), 2)
+    black_text = font.render("Black", True, WHITE)
+    black_text_rect = black_text.get_rect(center=(black_button_x + button_width // 2, button_y + button_height // 2))
+    win.blit(black_text, black_text_rect)
+    buttons.append((black_button_x, button_y, button_width, button_height, 'Black'))
+
+    pygame.display.update()
+    return buttons
 
 def draw_board(win):
     win.fill(WHITE)
@@ -131,27 +159,62 @@ def draw_board(win):
                 pygame.draw.rect(win, BLACK, (col * square_size, row * square_size, square_size, square_size))
     return square_size
 
-
 def draw_pieces(win, board, piece_images, square_size):
     for row in range(ROWS):
         for col in range(COLS):
             if board[row][col] != '':
                 win.blit(piece_images[board[row][col]], (col * square_size + square_size * 0.3, row * square_size))
 
-
 def is_valid_move(piece, start_pos, end_pos, board):
     return True
-
 
 def main():
     selected_piece = None
     start_pos = None
     boardNode = BoardNode([], startBoard, 'w')
+    player_team = None  # Store the player's team choice
+
+    while player_team is None:
+        square_size = draw_board(WIN)
+        piece_images = load_pieces(square_size)
+        draw_pieces(WIN, boardNode.board, piece_images, square_size)
+
+        team_buttons = display_team_selection(WIN)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = event.pos
+                for button in team_buttons:
+                    if (button[0] <= mouse_pos[0] <= button[0] + button[2] and
+                        button[1] <= mouse_pos[1] <= button[1] + button[3]):
+                        player_team = 'w' if button[4] == 'White' else 'b'
+                        break
+
     run = True
     while run:
         square_size = draw_board(WIN)
         piece_images = load_pieces(square_size)
         draw_pieces(WIN, boardNode.board, piece_images, square_size)
+        pygame.display.update()  # Update the screen with the current board state
+
+        if boardNode.player_to_move != player_team:
+            # AI's turn
+            max_depth = 14
+            recursion_count = 0
+
+            # You can add a small delay here if needed to see the board update before AI calculates
+            # pygame.time.delay(500)
+
+            # Calculate AI move after screen update
+            score, best_move = minimax(boardNode, depth=max_depth, alpha=-math.inf, beta=math.inf,
+                                maximizingPlayer=boardNode.player_to_move == 'w', max_depth=max_depth)
+            print(recursion_count)
+            boardNode = BoardNode(boardNode.history + [boardNode.board], best_move, 'b' if boardNode.player_to_move == 'w' else 'w', boardNode.move_number + 0.5)
+            boardNode.find_board_moves()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -166,12 +229,12 @@ def main():
                     if (button_rect[0] <= mouse_pos[0] <= button_rect[0] + button_rect[2] and
                         button_rect[1] <= mouse_pos[1] <= button_rect[1] + button_rect[3]):
                         # Restart the game
-                        boardNode = BoardNode([], startBoard, 'w')
+                        boardNode = BoardNode([], startBoard, player_team)
                         selected_piece = None
                         start_pos = None
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if not boardNode.terminal:
+                if not boardNode.terminal and boardNode.player_to_move == player_team:
                     x, y = event.pos
                     col, row = x // square_size, y // square_size
                     if boardNode.board[row][col] != '':
@@ -179,7 +242,7 @@ def main():
                         start_pos = (row, col)
 
             elif event.type == pygame.MOUSEBUTTONUP:
-                if not boardNode.terminal:
+                if not boardNode.terminal and boardNode.player_to_move == player_team:
                     x, y = event.pos
                     col, row = x // square_size, y // square_size
 
@@ -190,11 +253,12 @@ def main():
                             new_board[start_pos[0]][start_pos[1]] = ''
 
                             valid_move_found = False
+                            promotion_piece = None
 
                             # Check for promotion
-                            promotion_piece = None
                             if selected_piece == 'wP' and row == 0:
                                 new_board[row][col] = 'wQ'
+                                boardNode.find_board_moves()
                                 if new_board in boardNode.moves:
                                     promotion_buttons = display_promotion_options(WIN)
                                     promotion_piece = None
@@ -211,8 +275,8 @@ def main():
                                                         waiting_for_promotion = False
                                                         break
                             elif selected_piece == 'bP' and row == 7:
+                                new_board[row][col] = 'bQ'
                                 if new_board in boardNode.moves:
-                                    new_board[row][col] = 'wQ'
                                     promotion_buttons = display_promotion_options(WIN)
                                     promotion_piece = None
                                     waiting_for_promotion = True
@@ -234,6 +298,7 @@ def main():
                                 return_board = new_board
                                 valid_move_found = True
                             else:
+                                boardNode.find_board_moves()
                                 for future_board in boardNode.moves:
                                     if selected_piece in ['wR', 'bR']:
                                         if new_board == future_board:
@@ -252,7 +317,6 @@ def main():
                                 boardNode.player_to_move = 'b' if boardNode.player_to_move == 'w' else 'w'
                                 boardNode.history.append(boardNode.board)
                                 boardNode = BoardNode(boardNode.history, copy.deepcopy(return_board), boardNode.player_to_move, boardNode.move_number + 0.5)
-
 
                         selected_piece = None
                         start_pos = None
