@@ -1,8 +1,6 @@
-# main.py
 import pygame
 import os
 import copy
-
 from boardtree import BoardNode
 pygame.init()
 
@@ -49,7 +47,40 @@ def display_terminal_message(win, message):
     pygame.display.update()
 
     return (button_x, button_y, button_width, button_height)  # Return the button's rect for event handling
-# Load and scale piece images
+
+def display_promotion_options(win):
+    # Define the dimensions for the promotion dialog
+    width, height = win.get_size()
+    dialog_width, dialog_height = width // 3, height // 4
+    dialog_x, dialog_y = (width - dialog_width) // 2, (height - dialog_height) // 2
+
+    # Draw the dialog background
+    pygame.draw.rect(win, (200, 200, 200), (dialog_x, dialog_y, dialog_width, dialog_height))
+    pygame.draw.rect(win, BLACK, (dialog_x, dialog_y, dialog_width, dialog_height), 2)
+
+    # Define promotion pieces
+    font = pygame.font.Font(None, 36)
+    options = ['Queen', 'Rook', 'Bishop', 'Knight']
+    button_width = dialog_width // 2
+    button_height = dialog_height // 4
+    buttons = []
+
+    for i, option in enumerate(options):
+        button_x = dialog_x + (dialog_width - button_width) // 2
+        button_y = dialog_y + i * button_height + 20
+        pygame.draw.rect(win, (100, 100, 100), (button_x, button_y, button_width, button_height))
+        pygame.draw.rect(win, BLACK, (button_x, button_y, button_width, button_height), 2)
+
+        # Render the option text
+        button_text = font.render(option, True, WHITE)
+        button_text_rect = button_text.get_rect(center=(button_x + button_width // 2, button_y + button_height // 2))
+        win.blit(button_text, button_text_rect)
+
+        buttons.append((button_x, button_y, button_width, button_height, option))
+
+    pygame.display.update()
+    return buttons
+
 def load_and_scale_image(file_name, square_size):
     image = pygame.image.load(os.path.join('assets', file_name))
     orig_width, orig_height = image.get_size()
@@ -160,22 +191,67 @@ def main():
 
                             valid_move_found = False
 
-                            for future_board in boardNode.moves:
-                                if selected_piece in ['wR', 'bR']:
-                                    if new_board == future_board:
+                            # Check for promotion
+                            promotion_piece = None
+                            if selected_piece == 'wP' and row == 0:
+                                new_board[row][col] = 'wQ'
+                                if new_board in boardNode.moves:
+                                    promotion_buttons = display_promotion_options(WIN)
+                                    promotion_piece = None
+                                    waiting_for_promotion = True
+
+                                    while waiting_for_promotion:
+                                        for event in pygame.event.get():
+                                            if event.type == pygame.MOUSEBUTTONDOWN:
+                                                mouse_pos = event.pos
+                                                for button in promotion_buttons:
+                                                    if (button[0] <= mouse_pos[0] <= button[0] + button[2] and
+                                                        button[1] <= mouse_pos[1] <= button[1] + button[3]):
+                                                        promotion_piece = 'w' + button[4][0]  # 'Q', 'R', 'B', 'N'
+                                                        waiting_for_promotion = False
+                                                        break
+                            elif selected_piece == 'bP' and row == 7:
+                                if new_board in boardNode.moves:
+                                    new_board[row][col] = 'wQ'
+                                    promotion_buttons = display_promotion_options(WIN)
+                                    promotion_piece = None
+                                    waiting_for_promotion = True
+
+                                    while waiting_for_promotion:
+                                        for event in pygame.event.get():
+                                            if event.type == pygame.MOUSEBUTTONDOWN:
+                                                mouse_pos = event.pos
+                                                for button in promotion_buttons:
+                                                    if (button[0] <= mouse_pos[0] <= button[0] + button[2] and
+                                                        button[1] <= mouse_pos[1] <= button[1] + button[3]):
+                                                        promotion_piece = 'b' + button[4][0]  # 'Q', 'R', 'B', 'N'
+                                                        waiting_for_promotion = False
+                                                        break
+
+                            # If promotion happened, update the board with the selected piece
+                            if promotion_piece:
+                                new_board[row][col] = promotion_piece
+                                return_board = new_board
+                                valid_move_found = True
+                            else:
+                                for future_board in boardNode.moves:
+                                    if selected_piece in ['wR', 'bR']:
+                                        if new_board == future_board:
+                                            return_board = future_board
+                                            valid_move_found = True
+                                            break
+                                    elif (future_board[row][col] == selected_piece and
+                                          future_board[start_pos[0]][start_pos[1]] == '' and
+                                          future_board[row][col] == new_board[row][col] and
+                                          future_board[start_pos[0]][start_pos[1]] == new_board[start_pos[0]][start_pos[1]]):
+                                        return_board = future_board
                                         valid_move_found = True
                                         break
-                                elif (future_board[row][col] == selected_piece and
-                                      future_board[start_pos[0]][start_pos[1]] == '' and
-                                      future_board[row][col] == new_board[row][col] and
-                                      future_board[start_pos[0]][start_pos[1]] == new_board[start_pos[0]][start_pos[1]]):
-                                    valid_move_found = True
-                                    break
 
                             if valid_move_found:
                                 boardNode.player_to_move = 'b' if boardNode.player_to_move == 'w' else 'w'
                                 boardNode.history.append(boardNode.board)
-                                boardNode = BoardNode(boardNode.history, copy.deepcopy(future_board), boardNode.player_to_move, boardNode.move_number + 0.5)
+                                boardNode = BoardNode(boardNode.history, copy.deepcopy(return_board), boardNode.player_to_move, boardNode.move_number + 0.5)
 
 
                         selected_piece = None

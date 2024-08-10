@@ -13,6 +13,7 @@ class BoardNode:
         self.move_number = move_number
         self.check_for_draw_and_castle()
         self.find_board_moves()
+        self.get_board_score(self.board)
         if len(self.moves) == 0:
             if self.is_in_check(self.board, self.player_to_move):
                 if player_to_move == 'w':
@@ -40,7 +41,7 @@ class BoardNode:
                 if historic_score != self.board_score:
                     recent_capture = True
             if i >= 99 and not recent_capture:
-                self.terminal = 'Draw'
+                self.terminal = 'draw'
                 self.game_state = "Draw by 50 move rule"
 
             # Check if pawns have moved (i.e., if their positions differ)
@@ -55,7 +56,7 @@ class BoardNode:
             if self.board == self.history[index]:
                 repetition_count += 1
                 if repetition_count == 3:
-                    self.terminal = 'Draw'
+                    self.terminal = 'draw'
                     self.game_state = 'Draw by repetition'
                     break
 
@@ -246,13 +247,12 @@ class BoardNode:
 
         if self.player_to_move == 'w':
             for col in range(8):
-                # Check for white pawn on 5th rank (row 3)
+                # Check for white pawn on 5th rank (row 3) for en passant
                 if self.board[3][col] == 'wP':
                     # Check left and right for en passant
                     if col > 0 and self.board[2][col - 1] == '' and self.board[3][col - 1] == 'bP':
-                        # Check if the black pawn was in its starting position in the previous board state
                         if prev_board and prev_board[1][col - 1] == 'bP' and self.board[4][col - 1] == '':
-                            new_board = [r[:] for r in self.board]  # Deep copy of the board
+                            new_board = [r[:] for r in self.board]
                             new_board[3][col] = ''
                             new_board[3][col - 1] = ''
                             new_board[2][col - 1] = 'wP'
@@ -266,16 +266,35 @@ class BoardNode:
                             new_board[2][col + 1] = 'wP'
                             weird_moves.append(new_board)
 
-                # Check for promotion (white pawn on 1st rank)
+                # Check for promotion (white pawn on 7th rank, row 1 for 0-index)
                 if self.board[1][col] == 'wP':
-                    for promotion_piece in ['wQ', 'wR', 'wB', 'wN']:
-                        new_board = [r[:] for r in self.board]
-                        new_board[1][col] = promotion_piece
-                        weird_moves.append(new_board)
+                    # Promotion by moving forward into the 8th rank
+                    if self.board[0][col] == '':
+                        for promotion_piece in ['wQ', 'wR', 'wB', 'wN']:
+                            new_board = [r[:] for r in self.board]
+                            new_board[1][col] = ''
+                            new_board[0][col] = promotion_piece
+                            weird_moves.append(new_board)
+
+                    # Promotion by capturing diagonally left
+                    if col > 0 and self.board[0][col - 1] != '' and self.board[0][col - 1][0] == 'b':
+                        for promotion_piece in ['wQ', 'wR', 'wB', 'wN']:
+                            new_board = [r[:] for r in self.board]
+                            new_board[1][col] = ''
+                            new_board[0][col - 1] = promotion_piece
+                            weird_moves.append(new_board)
+
+                    # Promotion by capturing diagonally right
+                    if col < 7 and self.board[0][col + 1] != '' and self.board[0][col + 1][0] == 'b':
+                        for promotion_piece in ['wQ', 'wR', 'wB', 'wN']:
+                            new_board = [r[:] for r in self.board]
+                            new_board[1][col] = ''
+                            new_board[0][col + 1] = promotion_piece
+                            weird_moves.append(new_board)
 
         elif self.player_to_move == 'b':
             for col in range(8):
-                # Check for black pawn on 4th rank (row 4)
+                # Check for black pawn on 4th rank (row 4) for en passant
                 if self.board[4][col] == 'bP':
                     # Check left and right for en passant
                     if col > 0 and self.board[5][col - 1] == '' and self.board[4][col - 1] == 'wP':
@@ -294,12 +313,31 @@ class BoardNode:
                             new_board[5][col + 1] = 'bP'
                             weird_moves.append(new_board)
 
-                # Check for promotion (black pawn on 8th rank)
+                # Check for promotion (black pawn on 2nd rank, row 6 for 0-index)
                 if self.board[6][col] == 'bP':
-                    for promotion_piece in ['bQ', 'bR', 'bB', 'bN']:
-                        new_board = [r[:] for r in self.board]
-                        new_board[6][col] = promotion_piece
-                        weird_moves.append(new_board)
+                    # Promotion by moving forward into the 1st rank
+                    if self.board[7][col] == '':
+                        for promotion_piece in ['bQ', 'bR', 'bB', 'bN']:
+                            new_board = [r[:] for r in self.board]
+                            new_board[6][col] = ''
+                            new_board[7][col] = promotion_piece
+                            weird_moves.append(new_board)
+
+                    # Promotion by capturing diagonally left
+                    if col > 0 and self.board[7][col - 1] != '' and self.board[7][col - 1][0] == 'w':
+                        for promotion_piece in ['bQ', 'bR', 'bB', 'bN']:
+                            new_board = [r[:] for r in self.board]
+                            new_board[6][col] = ''
+                            new_board[7][col - 1] = promotion_piece
+                            weird_moves.append(new_board)
+
+                    # Promotion by capturing diagonally right
+                    if col < 7 and self.board[7][col + 1] != '' and self.board[7][col + 1][0] == 'w':
+                        for promotion_piece in ['bQ', 'bR', 'bB', 'bN']:
+                            new_board = [r[:] for r in self.board]
+                            new_board[6][col] = ''
+                            new_board[7][col + 1] = promotion_piece
+                            weird_moves.append(new_board)
 
         return weird_moves
 
